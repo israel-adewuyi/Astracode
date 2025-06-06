@@ -15,6 +15,7 @@ import json
 import logging
 import traceback
 
+from typing import Dict, Union, Any, List
 from .utils import check_correctness
 
 """
@@ -25,7 +26,13 @@ FaaS service provided by public cloud, eg: volcengine.com.
 logger = logging.getLogger(__name__)
 
 
-def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cases, continuous=False, timeout=10):
+def make_result(score: float, feedback: Union[str, Dict[str, Any]]) -> Dict[str, Union[float, str, Dict, List]]:
+    return {
+        'score': score,
+        'feedback': feedback
+    }
+
+def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cases, continuous=False, timeout=10) -> Dict[str, Union[float, str, dict, List]]:
     """
     Computes the code score using the remote sandbox API.
 
@@ -56,7 +63,7 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
                 if first_line.strip().isalpha():  # Simple check for language name
                     solution = rest
     else:
-        return 0.0, [{"error": "Invalid completion (missing code block)"}]
+        return make_result(0.0, [{"error": "Invalid completion (missing code block)"}])
 
     try:
         if not isinstance(test_cases, dict):
@@ -64,11 +71,11 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
                 test_cases = json.loads(test_cases)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse test_cases JSON: {e}")
-                return 0.0, [{"error": "Invalid test_cases JSON format"}]
+                return make_result(0.0, [{"error": "Invalid test_cases JSON format"}])
 
         if not test_cases or "inputs" not in test_cases or "outputs" not in test_cases:
             logger.error("Invalid test_cases structure.")
-            return 0.0, [{"error": "Invalid test_cases structure (missing inputs/outputs)"}]
+            return make_result(0.0, [{"error": "Invalid test_cases structure (missing inputs/outputs)"}])
 
         # Check all test cases
         # Note: The return value of check_correctness might need adaptation here
@@ -78,7 +85,7 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
 
         # Calculate score
         if not res_list:  # If there are no results (e.g., invalid input)
-            return 0.0, metadata_list
+            return make_result(0.0, metadata_list)
 
         if continuous:
             # Calculate pass rate for the first N (e.g., 10) test cases
@@ -105,4 +112,4 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
         final_metadata = metadata_list if "metadata_list" in locals() else [{"error": f"Unhandled exception: {e}"}]
 
     # Ensure float and list are returned
-    return float(score), final_metadata if isinstance(final_metadata, list) else [final_metadata]
+    return make_result(float(score), final_metadata if isinstance(final_metadata, list) else [final_metadata])
