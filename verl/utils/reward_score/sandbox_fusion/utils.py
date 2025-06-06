@@ -386,12 +386,12 @@ def check_correctness(sandbox_fusion_url: str, in_outs: Optional[dict], generati
     """
     logger.info("Starting correctness check for generation.")
 
-    if not in_outs or "inputs" not in in_outs or "outputs" not in in_outs:
+    if not in_outs or "input" not in in_outs or "output" not in in_outs:
         logger.warning("Invalid in_outs format provided.")
         return [-1], [{"error": "Invalid input/output data"}]
 
-    inputs = in_outs["inputs"]
-    expected_outputs = in_outs["outputs"]
+    inputs = in_outs["input"]
+    expected_outputs = in_outs["output"]
     fn_name = in_outs.get("fn_name")
     num_cases = len(inputs)
     results = [None] * num_cases  # Initialize with placeholders
