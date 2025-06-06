@@ -72,7 +72,7 @@ class NaiveRewardManager:
 
             if data_source == "CF":
                 score = self.compute_score(
-                    sandbox_fusion_url="http://localhost:8080/submit",
+                    sandbox_fusion_url="http://localhost:8080/run_code",
                     concurrent_semaphore=None,
                     completion=response_str,
                     test_cases=examples,
