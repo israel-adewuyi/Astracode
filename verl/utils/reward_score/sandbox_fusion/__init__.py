@@ -68,12 +68,12 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
     try:
         if not isinstance(test_cases, dict):
             try:
-                test_cases = json.loads(test_cases)
+                test_cases = json.loads(test_cases)[0]
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse test_cases JSON: {e}")
                 return make_result(0.0, [{"error": "Invalid test_cases JSON format"}])
 
-        if not test_cases or "inputs" not in test_cases or "outputs" not in test_cases:
+        if not test_cases or "input" not in test_cases or "output" not in test_cases:
             logger.error("Invalid test_cases structure.")
             return make_result(0.0, [{"error": "Invalid test_cases structure (missing inputs/outputs)"}])
 
