@@ -68,12 +68,22 @@ class NaiveRewardManager:
 
             extra_info = data_item.non_tensor_batch.get("extra_info", None)
 
-            score = self.compute_score(
-                data_source=data_source,
-                solution_str=response_str,
-                ground_truth=ground_truth,
-                extra_info=extra_info,
-            )
+            examples = data_item.non_tensor_batch["extra_info"]["examples"]
+
+            if data_source == "CF":
+                score = self.compute_score(
+                    sandbox_fusion_url="http://localhost:8080/submit",
+                    concurrent_semaphore=None,
+                    completion=response_str,
+                    test_cases=examples,
+                )
+            else:
+                score = self.compute_score(
+                    data_source=data_source,
+                    solution_str=response_str,
+                    ground_truth=ground_truth,
+                    extra_info=extra_info,
+                )
 
             if isinstance(score, dict):
                 reward = score["score"]
