@@ -68,7 +68,10 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
     try:
         if not isinstance(test_cases, dict):
             try:
-                test_cases = json.loads(test_cases)[0]
+                if isinstance(test_cases, list):
+                    test_cases = test_cases[0]
+                else:
+                    test_cases = json.loads(test_cases)[0]
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse test_cases JSON: {e}")
                 return make_result(0.0, [{"error": "Invalid test_cases JSON format"}])
@@ -111,5 +114,9 @@ def compute_score(sandbox_fusion_url, concurrent_semaphore, completion, test_cas
         # Try to return partial metadata if available, otherwise return error info
         final_metadata = metadata_list if "metadata_list" in locals() else [{"error": f"Unhandled exception: {e}"}]
 
+    if isinstance(score, float):
+        score = 1.0 if score == 1.0 else 0.0
+    if isinstance(score, int):
+        score = 1.0 if score == 1 else 0.0
     # Ensure float and list are returned
     return make_result(float(score), final_metadata if isinstance(final_metadata, list) else [final_metadata])
