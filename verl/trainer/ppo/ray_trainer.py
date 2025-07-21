@@ -619,7 +619,10 @@ class RayPPOTrainer:
 
         with open(filename, "w") as f:
             for i in range(n):
-                entry = {k: v[i] for k, v in base_data.items()}
+                entry = {
+                    k: v[i].tolist() if isinstance(v[i], torch.Tensor) else v[i]
+                    for k, v in base_data.items()
+                }
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
         print(f"Dumped generations to {filename}")
@@ -681,6 +684,8 @@ class RayPPOTrainer:
                 non_tensor_batch_keys_to_pop.append("raw_prompt")
             if "tools_kwargs" in test_batch.non_tensor_batch:
                 non_tensor_batch_keys_to_pop.append("tools_kwargs")
+            if "extra_info" in test_batch.non_tensor_batch:
+                non_tensor_batch_keys_to_pop.append("extra_info")
             test_gen_batch = test_batch.pop(
                 batch_keys=batch_keys_to_pop,
                 non_tensor_batch_keys=non_tensor_batch_keys_to_pop,
@@ -722,6 +727,9 @@ class RayPPOTrainer:
             sample_scores.extend(scores)
 
             reward_extra_infos_dict["reward"].extend(scores)
+            for item in test_batch:
+                reward_extra_infos_dict["problem_id"].append(item.non_tensor_batch["extra_info"]["problem_id"])
+                
             if "reward_extra_info" in result:
                 for key, lst in result["reward_extra_info"].items():
                     reward_extra_infos_dict[key].extend(lst)
@@ -996,6 +1004,8 @@ class RayPPOTrainer:
                     non_tensor_batch_keys_to_pop.append("raw_prompt")
                 if "tools_kwargs" in batch.non_tensor_batch:
                     non_tensor_batch_keys_to_pop.append("tools_kwargs")
+                if "extra_info" in batch.non_tensor_batch:
+                    non_tensor_batch_keys_to_pop.append("extra_info")
                 gen_batch = batch.pop(
                     batch_keys=batch_keys_to_pop,
                     non_tensor_batch_keys=non_tensor_batch_keys_to_pop,
@@ -1117,7 +1127,7 @@ class RayPPOTrainer:
 
                         print(f"{list(reward_extra_infos_dict.keys())=}")
                         if reward_extra_infos_dict:
-                            batch.non_tensor_batch.update({k: np.array(v) for k, v in reward_extra_infos_dict.items()})
+                            batch.non_tensor_batch.update({k: np.array(v, dtype=object) for k, v in reward_extra_infos_dict.items()})
 
                         # compute rewards. apply_kl_penalty if available
                         if self.config.algorithm.use_kl_in_reward:
@@ -1142,6 +1152,11 @@ class RayPPOTrainer:
                             pf_ppo_reweight_method=self.config.algorithm.pf_ppo.reweight_method,
                             pf_ppo_weight_pow=self.config.algorithm.pf_ppo.weight_pow,
                         )
+
+                    # Log problem id 
+                    if reward_extra_infos_dict:
+                        for item in batch:
+                            reward_extra_infos_dict["problem_id"].append(item.non_tensor_batch["extra_info"]["problem_id"])
 
                     # update critic
                     if self.use_critic:
