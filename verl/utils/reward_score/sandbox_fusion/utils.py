@@ -33,6 +33,23 @@ logger = logging.getLogger(__name__)
 # Define supported languages list (optional, for documentation or validation)
 SUPPORTED_LANGUAGES = ["python", "cpp", "nodejs", "go", "go_test", "java", "php", "csharp", "bash", "typescript", "sql", "rust", "cuda", "lua", "R", "perl", "D_ut", "ruby", "scala", "julia", "pytest", "junit", "kotlin_script", "jest", "verilog", "python_gpu", "lean", "swift", "racket"]
 
+def normalize_text(s):
+    # Step 1: Normalize all line endings to \n
+    s = s.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Step 2: Split into lines
+    lines = s.split('\n')
+    
+    # Step 3: Strip whitespace from each line
+    stripped_lines = [line.rstrip() for line in lines]
+    
+    # Step 4: Remove any empty lines at the end (from trailing \n)
+    while stripped_lines and stripped_lines[-1] == '':
+        stripped_lines.pop()
+    
+    # Step 5: Join back with standard line endings
+    return '\n'.join(stripped_lines)
+    
 
 def call_sandbox_api(sandbox_fusion_url: str, code: str, stdin: str, compile_timeout: int, run_timeout: int, language: str = "python") -> Tuple[Optional[Dict[str, Any]], Optional[str]]:  # <-- Remove request_id parameter
     """
@@ -342,7 +359,7 @@ if __name__ == '__main__':
             if run_result and metadata["run_status"] == "Finished":
                 actual_output = metadata["stdout"] if metadata["stdout"] is not None else ""
                 # Note: Output might contain trailing newlines, need normalization
-                if str(actual_output).rstrip("\n") == str(expected_output).rstrip("\n"):
+                if normalize_text(str(actual_output)) == normalize_text(str(expected_output)):
                     result_status = True
                     metadata["status"] = "success"
                 else:
