@@ -19,13 +19,7 @@ import os
 import re
 import argparse
 import datasets
-
-from prompt import (
-    NAIVE_PROMPT, 
-    COT_PROMPT,
-    SYS_PROMPT, 
-    SYS_PROMPT_WITH_FORMAT
-)
+import numpy as np
 
 from verl.utils.hdfs_io import copy, makedirs
 
@@ -39,11 +33,24 @@ def make_map_fn(split, use_tool):
         transformed = []
         for ex in examples_list:
             # Join input/output lists into single strings
-            transformed.append({
-                "input": "\n".join(ex["input"]),
-                "output": "\n".join(ex["output"])
-            })
+            data = {
+                "input": "".join(ex["input"]),
+                "output": "".join(ex["output"])
+            }
+            if len(ex["explanation"]) > 0:
+                data["explanation"] = ex["explanation"]
+            transformed.append(data)
         return transformed
+
+    def get_test_cases(examples_list):
+        """Converts list-of-strings inputs/outputs to list of test cases."""
+
+        inputs, outputs = [], []
+        for ex in examples_list:
+            inputs.append("".join(ex["input"]))
+            outputs.append("".join(ex["output"]))
+        return [{"input": inputs, "output": outputs}]
+        
         
     def process_fn(example, idx):
         problem_statement = example.pop("statement")
@@ -57,33 +64,25 @@ def make_map_fn(split, use_tool):
         import ast
         formatted_test_examples = ast.literal_eval(test_examples)
         formatted_test_examples = transform_examples(formatted_test_examples)
-
-        # print(formatted_test_examples)
+        actual_tests = get_test_cases(formatted_test_examples)
 
         prompt = f"""Provide a Python solution to a competitive programming question.
-        Problem statement:\n{problem_statement}\nInput specification:\n{input_format}\nOutput specification:\n{output_format}\nExamples:\n{formatted_test_examples}\n
+        Problem statement:\n{problem_statement}\nInput specification:\n{input_format}\nOutput specification:\n{output_format}\nExamples:\n{formatted_test_examples[0]}\n
         
         Think step by step and write python code to solve this problem. 
         Present the code in ```python\nYour code\n```"""
-
-        # print(test_examples)
-        # print(formatted_examples)
-        # For deepdeek
-        # full_prompt = COT_PROMPT.format(problem=prompt)
         
         data = {
             "data_source": data_source,
             "prompt": [
-                # {"role": "system", "content": COT_PROMPT},  # First message
                 {"role": "user", "content": prompt},
-                # {"role": "assistant", "content":""},
                 
             ],
-            "reward_model": {"style": "rule", "ground_truth": test_examples}, # why this line?? 
+            "reward_model": {"style": "rule", "ground_truth": test_examples}, 
             "extra_info": {
                 "index": idx,
                 "name": name,
-                "examples": test_examples, 
+                "examples": actual_tests, 
                 "problem_statement": problem_statement, 
                 "problem_id": problem_id,
             }, 
@@ -98,7 +97,6 @@ def make_map_fn(split, use_tool):
                 }
             }
         return data
-
     return process_fn
 
 
