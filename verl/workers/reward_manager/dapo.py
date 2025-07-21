@@ -31,6 +31,7 @@ class DAPORewardManager:
         reward_fn_key="data_source",
         max_resp_len=None,
         overlong_buffer_cfg=None,
+        **reward_model_kwargs, 
     ) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
@@ -84,23 +85,30 @@ class DAPORewardManager:
 
             extra_info = data_item.non_tensor_batch.get("extra_info", None)
 
-            result = self.compute_score(
-                data_source=data_source,
-                solution_str=response_str,
-                ground_truth=ground_truth,
-                extra_info=extra_info,
-            )
+            examples = data_item.non_tensor_batch["extra_info"]["examples"]
 
-            score: float
-            if isinstance(result, dict):
-                score = result["score"]
+            if data_source == "CF" or data_source == "AtC":
+                score = self.compute_score(
+                    sandbox_fusion_url="http://localhost:8080/run_code",
+                    concurrent_semaphore=None,
+                    completion=response_str,
+                    test_cases=examples,
+                )
+            else:
+                score = self.compute_score(
+                    data_source=data_source,
+                    solution_str=response_str,
+                    ground_truth=ground_truth,
+                    extra_info=extra_info,
+                )
+
+            if isinstance(score, dict):
+                reward = score["score"]
                 # Store the information including original reward
-                for key, value in result.items():
+                for key, value in score.items():
                     reward_extra_info[key].append(value)
             else:
-                score = result
-
-            reward = score
+                reward = score
 
             if self.overlong_buffer_cfg.enable:
                 overlong_buffer_len = self.overlong_buffer_cfg.len
@@ -123,8 +131,8 @@ class DAPORewardManager:
                 print("[prompt]", prompt_str)
                 print("[response]", response_str)
                 print("[ground_truth]", ground_truth)
-                if isinstance(result, dict):
-                    for key, value in result.items():
+                if isinstance(score, dict):
+                    for key, value in score.items():
                         print(f"[{key}]", value)
                 else:
                     print("[score]", score)
